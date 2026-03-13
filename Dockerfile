@@ -1,15 +1,13 @@
-# Stage 1: Lấy ffmpeg từ Alpine
-FROM alpine:3.20 AS ffmpeg-builder
-RUN apk add --no-cache ffmpeg
-
-# Stage 2: Image n8n chính
 FROM n8nio/n8n:latest
 
 USER root
 
-# Copy ffmpeg và các thư viện cần thiết từ Alpine
-COPY --from=ffmpeg-builder /usr/bin/ffmpeg /usr/bin/ffmpeg
-COPY --from=ffmpeg-builder /usr/bin/ffprobe /usr/bin/ffprobe
-COPY --from=ffmpeg-builder /usr/lib /usr/lib
+# Tải bản FFmpeg static build (chạy được trên mọi Linux)
+RUN curl -O https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz \
+    && tar xvf ffmpeg-release-amd64-static.tar.xz \
+    && mv ffmpeg-*-amd64-static/ffmpeg /usr/bin/ffmpeg \
+    && mv ffmpeg-*-amd64-static/ffprobe /usr/bin/ffprobe \
+    && rm -rf ffmpeg-* \
+    && chmod +x /usr/bin/ffmpeg /usr/bin/ffprobe
 
 USER node
