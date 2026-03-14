@@ -1,31 +1,23 @@
+# Stage 1: Tải FFmpeg static build trong Alpine
+FROM alpine:3.20 AS downloader
+
+RUN wget -q https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz -O /tmp/ffmpeg.tar.xz \
+    && cd /tmp \
+    && tar xf ffmpeg.tar.xz \
+    && mv ffmpeg-*-amd64-static/ffmpeg /ffmpeg \
+    && mv ffmpeg-*-amd64-static/ffprobe /ffprobe \
+    && chmod +x /ffmpeg /ffprobe
+
+# Stage 2: Image n8n chính
 FROM n8nio/n8n:latest
 
 USER root
 
-# 1. Cài curl và xz để tải file (dùng apk nếu base là alpine, nhưng n8n official thường base trên debian/node)
-#    Tuy nhiên, image n8n rất tối giản. Ta sẽ thử dùng wget có sẵn hoặc curl static.
-#    Cách an toàn nhất: dùng image `alpine` để tải, sau đó COPY sang.
+# Copy static binary vào /usr/bin (chắc chắn nằm trong PATH)
+COPY --from=downloader /ffmpeg /usr/bin/ffmpeg
+COPY --from=downloader /ffprobe /usr/bin/ffprobe
 
-# Stage 1: Downloader (dùng Alpine để tải cho dễ)
-FROM alpine:latest as downloader
-RUN apk add --no-cache curl xz tar
-WORKDIR /tmp
-# Tải FFmpeg static build (John Van Sickle)
-RUN curl -L https://johnvansickle.com/releases/ffmpeg-release-amd64-static.tar.xz -o ffmpeg.tar.xz
-RUN tar xf ffmpeg.tar.xz
-RUN mv ffmpeg-*-amd64-static/ffmpeg /ffmpeg
-RUN mv ffmpeg-*-amd64-static/ffprobe /ffprobe
-
-# Stage 2: Image chính
-FROM n8nio/n8n:latest
-
-USER root
-
-# Copy file binary static từ stage 1
-COPY --from=downloader /ffmpeg /usr/local/bin/ffmpeg
-COPY --from=downloader /ffprobe /usr/local/bin/ffprobe
-
-# Cấp quyền thực thi
-RUN chmod +x /usr/local/bin/ffmpeg /usr/local/bin/ffprobe
+# ✅ KIỂM TRA NGAY: nếu dòng này fail → build fail → biết ngay lỗi
+RUN /usr/bin/ffmpeg -version
 
 USER node
